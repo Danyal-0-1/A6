@@ -1,123 +1,126 @@
-var express = require("express");
-var app = express();
-var bodyParser = require('body-parser');
-var errorHandler = require('errorhandler');
-var methodOverride = require('method-override');
-var hostname = process.env.HOSTNAME || 'localhost';
-var port = 8080;
-var VALUEt = 0;
-var VALUEh = 0;
-var VALUEtime = 0;
+const express = require("express");
+const app = express();
+const errorHandler = require("errorhandler");
+const methodOverride = require("method-override");
+const MongoClient = require("mongodb").MongoClient;
 
-let MongoClient = require('mongodb').MongoClient;
-const connectionString = 'mongodb://localhost:27017';
+const hostname = "0.0.0.0";
+const port = 8080;
+const connectionString = "mongodb://localhost:27017";
 
+let VALUEt = 0;
+let VALUEh = 0;
+let VALUEtime = 0;
+
+// Middleware setup
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(methodOverride());
+app.use(express.static(__dirname + "/public"));
+app.use(errorHandler());
 
 app.get("/", function (req, res) {
     res.redirect("/index.html");
 });
 
-app.get("/getAverage", function (req, res) {
-  var from = parseInt(req.query.from);
-  var to = parseInt(req.query.to);
-  db.collection("dataWeather").find({time:{$gt:from, $lt:to}}).toArray(function(err, result){
-  	console.log(err);
-  	console.log(result);
-  	var tempSum = 0;
-  	var humSum = 0;
-  	for(var i=0; i< result.length; i++){
-  		tempSum += result[i].t || 0;
-  		humSum += result[i].t || 0;
-  	}
-  	var tAvg = tempSum/result.length;
-  	var hAvg = humSum/result.length;
-  	res.send(tAvg + " "+  hAvg);
-  });
+// Endpoint: Get average values
+app.get("/getAverage", async function (req, res) {
+    const from = parseInt(req.query.from);
+    const to = parseInt(req.query.to);
+
+    if (isNaN(from) || isNaN(to)) {
+        res.status(400).send({ error: "Invalid 'from' or 'to' parameters" });
+        return;
+    }
+
+    try {
+        const client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
+        const db = client.db("sensorData");
+
+        const results = await db.collection("data").find({ time: { $gte: from, $lte: to } }).toArray();
+        client.close();
+
+        const tempSum = results.reduce((sum, entry) => sum + (entry.t || 0), 0);
+        const humSum = results.reduce((sum, entry) => sum + (entry.h || 0), 0);
+        const count = results.length;
+
+        const tAvg = count > 0 ? tempSum / count : 0;
+        const hAvg = count > 0 ? humSum / count : 0;
+
+        res.send({ tAvg, hAvg });
+    } catch (error) {
+        console.error("Error fetching data for averages:", error);
+        res.status(500).send({ error: "Internal server error" });
+    }
 });
 
-app.get("/getLatest", function (req, res) {
-  (async function() {
-    let client = await MongoClient.connect(connectionString,
-      { useNewUrlParser: true });
-    let db = client.db('sensorData');
+// Endpoint: Get latest values
+app.get("/getLatest", async function (req, res) {
     try {
-      let result = await db.collection("data").find().sort({time:-1}).limit(10).toArray();
-      res.send(JSON.stringify(result));
+        const client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
+        const db = client.db("sensorData");
+
+        const result = await db.collection("data").find().sort({ time: -1 }).limit(10).toArray();
+        client.close();
+
+        res.json(result);
+    } catch (error) {
+        console.error("Error fetching latest data:", error);
+        res.status(500).send({ error: "Internal server error" });
     }
-    finally {
-      client.close();
-    }
-  })().catch(err => console.error(err));
 });
+
+// Endpoint: Get historical data
 app.get("/getData", async function (req, res) {
-  const from = parseInt(req.query.from);
-  const to = parseInt(req.query.to);
+    const from = parseInt(req.query.from);
+    const to = parseInt(req.query.to);
 
-  if (isNaN(from) || isNaN(to)) {
-    res.status(400).send({ error: "Invalid 'from' or 'to' parameters" });
-    return;
-  }
+    if (isNaN(from) || isNaN(to)) {
+        res.status(400).send({ error: "Invalid 'from' or 'to' parameters" });
+        return;
+    }
 
-  try {
-    const client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
-    const db = client.db("sensorData");
-
-    // Log the query
-    console.log("Querying data from:", from, "to:", to);
-
-    const result = await db.collection("data").find({ time: { $gte: from, $lte: to } }).toArray();
-
-    // Log the result
-    console.log("Query result:", result);
-
-    client.close();
-    res.json(result);
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    res.status(500).send({ error: "Internal server error" });
-  }
-});
-
-
-
-
-app.get("/getValue", function (req, res) {
-  //res.writeHead(200, {'Content-Type': 'text/plain'});
-  res.send(VALUEt.toString() + " " + VALUEh + " " + VALUEtime + "\r");
-});
-
-app.get("/setValue", function (req, res) {
-  VALUEt = parseFloat(req.query.t);
-  VALUEh = parseFloat(req.query.h);
-  VALUEtime = new Date().getTime();
-	var dataObj = {
-		t: VALUEt,
-		h: VALUEh,
-		time: VALUEtime
-	}
-  res.send(VALUEtime.toString());
-  (async function() {
-    let client = await MongoClient.connect(connectionString,
-      { useNewUrlParser: true });
-    let db = client.db('sensorData');
     try {
-      result = await db.collection("data").insertOne(dataObj);
-      if(result.insertedId) {
-        result = result.insertedId.toString();
-        console.log(result);
-      }
+        const client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
+        const db = client.db("sensorData");
+
+        const result = await db.collection("data").find({ time: { $gte: from, $lte: to } }).toArray();
+        client.close();
+
+        res.json(result);
+    } catch (error) {
+        console.error("Error fetching data:", error);
+        res.status(500).send({ error: "Internal server error" });
     }
-    finally {
-      client.close();
-    }
-  })().catch(err => console.error(err));
 });
 
+// Endpoint: Set values
+app.get("/setValue", async function (req, res) {
+    VALUEt = parseFloat(req.query.t);
+    VALUEh = parseFloat(req.query.h);
+    VALUEtime = new Date().getTime();
 
-app.use(methodOverride());
-app.use(bodyParser());
-app.use(express.static(__dirname + '/public'));
-app.use(errorHandler());
+    if (isNaN(VALUEt) || isNaN(VALUEh)) {
+        res.status(400).send({ error: "Invalid temperature or humidity values" });
+        return;
+    }
 
-console.log("Simple static server listening at http://" + hostname + ":" + port);
+    const dataObj = { t: VALUEt, h: VALUEh, time: VALUEtime };
+
+    try {
+        const client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
+        const db = client.db("sensorData");
+
+        const result = await db.collection("data").insertOne(dataObj);
+        console.log("Data inserted:", result.insertedId);
+
+        client.close();
+        res.send(VALUEtime.toString());
+    } catch (error) {
+        console.error("Error inserting data:", error);
+        res.status(500).send({ error: "Internal server error" });
+    }
+});
+
+console.log(`Server running at http://${hostname}:${port}`);
 app.listen(port);
