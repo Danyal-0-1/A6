@@ -20,12 +20,15 @@ function loadFile(filename, callback) {
 
                 if (aXMLHttpRequest.status === 200) { // HTTP success status
                     try {
-                        // Parse the JSON response
-                        const jsonData = JSON.parse(aXMLHttpRequest.responseText);
+                        const responseText = aXMLHttpRequest.responseText.trim();
+                        if (!responseText) {
+                            throw new Error("Empty response from server");
+                        }
+                        const jsonData = JSON.parse(responseText); // Parse JSON response
                         callback(null, jsonData); // Pass parsed JSON to the callback
                     } catch (error) {
-                        console.error("Error parsing JSON:", error); // Log parsing error
-                        callback(error, null); // Pass the error to the callback
+                        console.error("Error parsing JSON:", error);
+                        callback(error, null); // Pass error to the callback
                     }
                 } else {
                     console.error("HTTP error:", aXMLHttpRequest.status, aXMLHttpRequest.statusText); // Log HTTP errors
