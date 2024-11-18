@@ -47,3 +47,14 @@ function loadFile(filename, callback) {
         callback(new Error("Failed to create XMLHttpRequest object"), null);
     }
 }
+
+// Example usage: Fetch historical data
+loadFile('/getData?from=START_TIME&to=END_TIME', function (error, data) {
+    if (error) {
+        console.error("Error loading data:", error);
+    } else {
+        console.log("Fetched data:", data);
+        // Pass data to your graph-rendering function
+        displayGraph(data);
+    }
+});
