@@ -1,44 +1,34 @@
-function getXMLHTTPRequest()
-{
-    var request;
-    // Lets try using ActiveX to instantiate the XMLHttpRequest object
-    try{
-        request = new ActiveXObject("Microsoft.XMLHTTP");
-    }catch(ex1){
-        try{
-            request = new ActiveXObject("Msxml2.XMLHTTP");
-        }catch(ex2){
-            request = null;
-        }
+function getXMLHTTPRequest() {
+    // Create an XMLHttpRequest object for modern browsers
+    if (typeof XMLHttpRequest !== "undefined") {
+        return new XMLHttpRequest();
+    } else {
+        console.error("XMLHttpRequest is not supported by this browser.");
+        return null;
     }
-
-    // If the previous didn't work, lets check if the browser natively support XMLHttpRequest 
-    if(!request && typeof XMLHttpRequest != "undefined"){
-        //The browser does, so lets instantiate the object
-        request = new XMLHttpRequest();
-    }
-
-    return request;
 }
 
 function loadFile(filename, callback) {
     var aXMLHttpRequest = getXMLHTTPRequest();
+
     if (aXMLHttpRequest) {
-        aXMLHttpRequest.open("GET", filename, true);
+        aXMLHttpRequest.open("GET", filename, true); // Open an asynchronous GET request
 
         aXMLHttpRequest.onreadystatechange = function () {
-            if (aXMLHttpRequest.readyState == 4) {
-                if (aXMLHttpRequest.status == 200) {
+            if (aXMLHttpRequest.readyState === 4) { // Request is complete
+                console.log("Raw response from server:", aXMLHttpRequest.responseText); // Debug raw response
+
+                if (aXMLHttpRequest.status === 200) { // HTTP success status
                     try {
-                        // Parse JSON response
+                        // Parse the JSON response
                         const jsonData = JSON.parse(aXMLHttpRequest.responseText);
-                        callback(null, jsonData);
+                        callback(null, jsonData); // Pass parsed JSON to the callback
                     } catch (error) {
-                        console.error("Error parsing JSON:", error);
-                        callback(error, null);
+                        console.error("Error parsing JSON:", error); // Log parsing error
+                        callback(error, null); // Pass the error to the callback
                     }
                 } else {
-                    console.error("HTTP error:", aXMLHttpRequest.status, aXMLHttpRequest.statusText);
+                    console.error("HTTP error:", aXMLHttpRequest.status, aXMLHttpRequest.statusText); // Log HTTP errors
                     callback(new Error("HTTP error " + aXMLHttpRequest.status), null);
                 }
             }
@@ -51,11 +41,3 @@ function loadFile(filename, callback) {
         callback(new Error("Failed to create XMLHttpRequest object"), null);
     }
 }
-
-
-
-     
-
-
-
-
