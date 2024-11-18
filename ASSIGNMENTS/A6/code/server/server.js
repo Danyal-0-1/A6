@@ -50,37 +50,34 @@ app.get("/getLatest", function (req, res) {
   })().catch(err => console.error(err));
 });
 app.get("/getData", async function (req, res) {
-  const from = parseInt(req.query.from); // Start of time range
-  const to = parseInt(req.query.to);     // End of time range
+  const from = parseInt(req.query.from);
+  const to = parseInt(req.query.to);
 
-  // Check for valid query parameters
   if (isNaN(from) || isNaN(to)) {
     res.status(400).send({ error: "Invalid 'from' or 'to' parameters" });
     return;
   }
 
-  // Connect to MongoDB and query the database
   try {
     const client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
-    const db = client.db("sensorData"); // Replace "sensorData" with your database name if different
+    const db = client.db("sensorData");
 
-    // Query the database for data within the given time range
-    const result = await db
-      .collection("data")
-      .find({ time: { $gte: from, $lte: to } })
-      .sort({ time: 1 }) // Sort results by time in ascending order
-      .toArray();
+    // Log the query
+    console.log("Querying data from:", from, "to:", to);
 
-    // Close the database connection
+    const result = await db.collection("data").find({ time: { $gte: from, $lte: to } }).toArray();
+
+    // Log the result
+    console.log("Query result:", result);
+
     client.close();
-
-    // Send the result back as JSON
     res.json(result);
   } catch (error) {
     console.error("Error fetching data:", error);
     res.status(500).send({ error: "Internal server error" });
   }
 });
+
 
 
 
