@@ -21,30 +21,34 @@ function getXMLHTTPRequest()
     return request;
 }
 
-
-function loadFile(filename, callback)
-{
+function loadFile(filename, callback) {
     var aXMLHttpRequest = getXMLHTTPRequest();
-    var allData;
-
-    if (aXMLHttpRequest)
-    {
+    if (aXMLHttpRequest) {
         aXMLHttpRequest.open("GET", filename, true);
-        
-      aXMLHttpRequest.onreadystatechange = function (aEvt) {
-        if(aXMLHttpRequest.readyState == 4){
-        allData = aXMLHttpRequest.responseText;
-        callback(allData)
-        }
-      };
-      
-      //Lets fire off the request
+
+        aXMLHttpRequest.onreadystatechange = function () {
+            if (aXMLHttpRequest.readyState == 4) {
+                if (aXMLHttpRequest.status == 200) {
+                    try {
+                        // Parse JSON response
+                        const jsonData = JSON.parse(aXMLHttpRequest.responseText);
+                        callback(null, jsonData);
+                    } catch (error) {
+                        console.error("Error parsing JSON:", error);
+                        callback(error, null);
+                    }
+                } else {
+                    console.error("HTTP error:", aXMLHttpRequest.status, aXMLHttpRequest.statusText);
+                    callback(new Error("HTTP error " + aXMLHttpRequest.status), null);
+                }
+            }
+        };
+
+        // Send the request
         aXMLHttpRequest.send(null);
-    }
-    else
-    {
-        //Oh no, the XMLHttpRequest object couldn't be instantiated.
-        alert("A problem occurred instantiating the XMLHttpRequest object.");
+    } else {
+        console.error("Failed to create XMLHttpRequest object.");
+        callback(new Error("Failed to create XMLHttpRequest object"), null);
     }
 }
 
