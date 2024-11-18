@@ -49,39 +49,12 @@ app.get("/getLatest", function (req, res) {
     }
   })().catch(err => console.error(err));
 });
-app.get("/getData", async function (req, res) {
-  const from = parseInt(req.query.from); // Start of time range
-  const to = parseInt(req.query.to);     // End of time range
 
-  // Check for valid query parameters
-  if (isNaN(from) || isNaN(to)) {
-    res.status(400).send({ error: "Invalid 'from' or 'to' parameters" });
-    return;
-  }
-
-  // Connect to MongoDB and query the database
-  try {
-    const client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
-    const db = client.db("sensorData"); // Replace "sensorData" with your database name if different
-
-    // Query the database for data within the given time range
-    const result = await db
-      .collection("data")
-      .find({ time: { $gte: from, $lte: to } })
-      .sort({ time: 1 }) // Sort results by time in ascending order
-      .toArray();
-
-    // Close the database connection
-    client.close();
-
-    // Send the result back as JSON
-    res.json(result);
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    res.status(500).send({ error: "Internal server error" });
-  }
+app.get("/getData", function (req, res) {
+  var from = parseInt(req.query.from);
+  var to = parseInt(req.query.to);
+ // get values from database, where time is between from and to abd return it as JSON
 });
-
 
 
 app.get("/getValue", function (req, res) {
