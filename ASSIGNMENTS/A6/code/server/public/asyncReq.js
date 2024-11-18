@@ -25,6 +25,9 @@ function loadFile(filename, callback) {
                             throw new Error("Empty response from server");
                         }
                         const jsonData = JSON.parse(responseText); // Parse JSON response
+                        if (!jsonData || !Array.isArray(jsonData)) {
+                            throw new Error("Invalid JSON structure");
+                        }
                         callback(null, jsonData); // Pass parsed JSON to the callback
                     } catch (error) {
                         console.error("Error parsing JSON:", error);
