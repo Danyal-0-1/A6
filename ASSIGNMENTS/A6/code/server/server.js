@@ -1,88 +1,126 @@
-const express = require("express");
-const app = express();
-const MongoClient = require("mongodb").MongoClient;
+var express = require("express");
+var app = express();
+var bodyParser = require('body-parser');
+var errorHandler = require('errorhandler');
+var methodOverride = require('method-override');
+var hostname = process.env.HOSTNAME || 'localhost';
+var port = 8080;
+var VALUEt = 0;
+var VALUEh = 0;
+var VALUEtime = 0;
 
-const hostname = "0.0.0.0";
-const port = 8080;
-const connectionString = "mongodb://localhost:27017";
+let MongoClient = require('mongodb').MongoClient;
+const connectionString = 'mongodb://localhost:27017';
 
-// Middleware setup
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(__dirname + "/public"));
 
-// Default Route
 app.get("/", function (req, res) {
     res.redirect("/index.html");
 });
 
-// Endpoint: Get latest data (most recent 10 records)
-app.get("/getLatest", async function (req, res) {
-    try {
-        const client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
-        const db = client.db("sensorData");
-
-        const result = await db.collection("data").find().sort({ time: -1 }).limit(10).toArray();
-        client.close();
-
-        res.json(result); // Send JSON response
-    } catch (error) {
-        console.error("Error fetching latest data:", error);
-        res.status(500).send({ error: "Internal server error" });
-    }
+app.get("/getAverage", function (req, res) {
+  var from = parseInt(req.query.from);
+  var to = parseInt(req.query.to);
+  db.collection("dataWeather").find({time:{$gt:from, $lt:to}}).toArray(function(err, result){
+  	console.log(err);
+  	console.log(result);
+  	var tempSum = 0;
+  	var humSum = 0;
+  	for(var i=0; i< result.length; i++){
+  		tempSum += result[i].t || 0;
+  		humSum += result[i].t || 0;
+  	}
+  	var tAvg = tempSum/result.length;
+  	var hAvg = humSum/result.length;
+  	res.send(tAvg + " "+  hAvg);
+  });
 });
 
-// Endpoint: Get historical data
+app.get("/getLatest", function (req, res) {
+  (async function() {
+    let client = await MongoClient.connect(connectionString,
+      { useNewUrlParser: true });
+    let db = client.db('sensorData');
+    try {
+      let result = await db.collection("data").find().sort({time:-1}).limit(10).toArray();
+      res.send(JSON.stringify(result));
+    }
+    finally {
+      client.close();
+    }
+  })().catch(err => console.error(err));
+});
 app.get("/getData", async function (req, res) {
-    const from = parseInt(req.query.from);
-    const to = parseInt(req.query.to);
+  const from = parseInt(req.query.from); // Start of time range
+  const to = parseInt(req.query.to);     // End of time range
 
-    if (isNaN(from) || isNaN(to)) {
-        res.status(400).send({ error: "Invalid 'from' or 'to' parameters" });
-        return;
-    }
+  // Check for valid query parameters
+  if (isNaN(from) || isNaN(to)) {
+    res.status(400).send({ error: "Invalid 'from' or 'to' parameters" });
+    return;
+  }
 
-    try {
-        const client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
-        const db = client.db("sensorData");
+  // Connect to MongoDB and query the database
+  try {
+    const client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
+    const db = client.db("sensorData"); // Replace "sensorData" with your database name if different
 
-        const result = await db.collection("data").find({ time: { $gte: from, $lte: to } }).toArray();
-        client.close();
+    // Query the database for data within the given time range
+    const result = await db
+      .collection("data")
+      .find({ time: { $gte: from, $lte: to } })
+      .sort({ time: 1 }) // Sort results by time in ascending order
+      .toArray();
 
-        res.json(result || []); // Send JSON response or empty array
-    } catch (error) {
-        console.error("Error fetching data:", error);
-        res.status(500).send({ error: "Internal server error" });
-    }
+    // Close the database connection
+    client.close();
+
+    // Send the result back as JSON
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    res.status(500).send({ error: "Internal server error" });
+  }
 });
 
-// Endpoint: Set a new value
-app.get("/setValue", async function (req, res) {
-    const VALUEt = parseFloat(req.query.t);
-    const VALUEh = parseFloat(req.query.h);
-    const VALUEtime = new Date().getTime();
 
-    if (isNaN(VALUEt) || isNaN(VALUEh)) {
-        res.status(400).send({ error: "Invalid temperature or humidity values" });
-        return;
-    }
 
-    const dataObj = { t: VALUEt, h: VALUEh, time: VALUEtime };
-
-    try {
-        const client = await MongoClient.connect(connectionString, { useNewUrlParser: true, useUnifiedTopology: true });
-        const db = client.db("sensorData");
-
-        const result = await db.collection("data").insertOne(dataObj);
-        console.log("Data inserted:", result.insertedId);
-
-        client.close();
-        res.send(VALUEtime.toString());
-    } catch (error) {
-        console.error("Error inserting data:", error);
-        res.status(500).send({ error: "Internal server error" });
-    }
+app.get("/getValue", function (req, res) {
+  //res.writeHead(200, {'Content-Type': 'text/plain'});
+  res.send(VALUEt.toString() + " " + VALUEh + " " + VALUEtime + "\r");
 });
 
-console.log(`Server running at http://${hostname}:${port}`);
+app.get("/setValue", function (req, res) {
+  VALUEt = parseFloat(req.query.t);
+  VALUEh = parseFloat(req.query.h);
+  VALUEtime = new Date().getTime();
+	var dataObj = {
+		t: VALUEt,
+		h: VALUEh,
+		time: VALUEtime
+	}
+  res.send(VALUEtime.toString());
+  (async function() {
+    let client = await MongoClient.connect(connectionString,
+      { useNewUrlParser: true });
+    let db = client.db('sensorData');
+    try {
+      result = await db.collection("data").insertOne(dataObj);
+      if(result.insertedId) {
+        result = result.insertedId.toString();
+        console.log(result);
+      }
+    }
+    finally {
+      client.close();
+    }
+  })().catch(err => console.error(err));
+});
+
+
+app.use(methodOverride());
+app.use(bodyParser());
+app.use(express.static(__dirname + '/public'));
+app.use(errorHandler());
+
+console.log("Simple static server listening at http://" + hostname + ":" + port);
 app.listen(port);
